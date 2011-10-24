@@ -1,0 +1,200 @@
+#! /usr/bin/env python
+"""
+This program starts an SML process and
+wraps a thin interpreter layer around it.
+"""
+
+import Queue
+import cmd
+import os
+import re
+import subprocess
+import sys
+import threading
+import time
+
+class SML (cmd.Cmd):
+    """
+    An SML console.
+    """
+
+    validentregex = re.compile(r'val\s+(\w+)\s+')
+    funidentregex = re.compile(r'fun\s+(\w+)\s*\(.*\)')
+
+    class NonBlockingReaderDaemon (threading.Thread):
+        """
+        A daemon that facilitates non-blocking reads from
+        a blocking stream.
+        """
+        def __init__ (self, infile):
+            """
+            Initializes an instance from an open stream.
+            """
+            super (SML.NonBlockingReaderDaemon, self).__init__ ()
+
+            self.stream, self.daemon = infile, True
+            self.lines,  self.bytes  = 0, Queue.Queue()
+
+        def read (self):
+            """
+            Returns what has been read so far.
+            """
+            s = []
+
+            try:
+                while True:
+                    s.append (self.bytes.get_nowait ())
+            except Queue.Empty:
+                pass
+
+            # If there was anything there it's gone now.
+            self.lines = 0
+
+            return ''.join(s) if s is not None else ''
+
+        def readlines (self):
+            """
+            Returns what lines have been read so far.
+            """
+            s, line = [], []
+
+            try:
+                while self.lines:
+                    byte = self.bytes.get_nowait ()
+
+                    line.append (byte)
+
+                    if byte == '\n':
+                        self.lines -= 1
+                        s.append (''.join (line))
+                        line = []
+            except Queue.Empty:
+                pass
+
+            return s
+
+        def run (self):
+            """
+            Main loop of daemon.
+            """
+            while True:
+                s = self.stream.read(1)
+
+                if s == '\n':
+                    self.lines += 1
+
+                self.bytes.put (s)
+
+    def __init__ (self, sml):
+        """
+        Initializes an SML console from an SML
+        process.
+        """
+        cmd.Cmd.__init__(self, 'tab')
+
+        self.sml, self.prompt = sml, ''
+        self.intro  = 'HAbitual ML Environment for Tabulators\n'
+        self.intro += 'powered by ' + self.sml.stdout.readline().strip('\n')
+
+        self.idents = set ()
+
+        self.stdoutdaemon = SML.NonBlockingReaderDaemon (self.sml.stdout)
+        self.stderrdaemon = SML.NonBlockingReaderDaemon (self.sml.stderr)
+
+    def completedefault (self, text, line='', begidx=0, endidx=0):
+        """
+        Returns a list of possible completions for text in line.
+        """
+        possibilities = []
+
+        if text == '' and line == '' and self.prompt == '= ':
+            return ['  ']
+
+        for ident in self.idents:
+            if ident.startswith (text):
+                possibilities.append (ident)
+
+        return possibilities
+
+    def completenames (self, text, *ignored):
+        """
+        Returns a list of possible completions for text.
+        """
+        return self.completedefault (text)
+
+    def default (self, line):
+        """
+        Handles any line that is not caught
+        by a do_command method.
+        """
+        self.sml.stdin.write(line + '\n')
+
+        if line.startswith ('fun'):
+            match = self.funidentregex.search(line)
+            if match is not None:
+                self.idents.add (match.groups()[0])
+
+    def do_EOF (self, line):
+        """
+        Handles EOF, exits the program.
+        """
+        print '\n',
+        exit(0)
+
+    def emptyline (self):
+        """
+        Handles the event of an empty line.
+        """
+        self.default('')
+
+    def postcmd (self, stop, line):
+        """
+        Method that is ran after a command
+        has been compiled and issued.
+        """
+        now     = time.time()
+        timer   = 0.0
+        timeout = 2.0
+
+        read, line = '', ''
+
+        while timer < timeout:
+            read += self.stdoutdaemon.read ()
+
+            if read.startswith ('- ') or read.startswith ('= '):
+                self.prompt = read
+                break
+
+            if '\n' in read:
+                line, read = read.rsplit('\n', 1)
+
+                for match in self.validentregex.findall (line):
+                    self.idents.add (match)
+
+                sys.stdout.write (line + '\n')
+
+            for error in self.stderrdaemon.readlines ():
+                sys.stderr.write (error)
+
+            timer = time.time() - now
+
+    def preloop (self):
+        """
+        Method that is ran before the main-loop.
+        """
+        self.stdoutdaemon.start()
+        self.stderrdaemon.start()
+
+        while len(self.prompt) < 2:
+            self.prompt += self.stdoutdaemon.read()
+
+args = ['sml'] + ([] if sys.argv[1:] is None else sys.argv[1:])
+
+try:
+    SML (subprocess.Popen (args,
+                           stdin  = subprocess.PIPE,
+                           stdout = subprocess.PIPE,
+                           stderr = subprocess.PIPE)).cmdloop ()
+except KeyboardInterrupt:
+    print >> sys.stderr, ''
+    print >> sys.stderr, 'Received interrupt, exiting with success.'
