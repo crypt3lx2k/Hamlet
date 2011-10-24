@@ -126,7 +126,7 @@ class SML (cmd.Cmd):
         Handles any line that is not caught
         by a do_command method.
         """
-        self.sml.stdin.write(line + '\n')
+        self.sml.stdin.write (line + '\n')
 
         if line.startswith ('fun'):
             match = self.funidentregex.search(line)
@@ -137,8 +137,11 @@ class SML (cmd.Cmd):
         """
         Handles EOF, exits the program.
         """
-        print '\n',
-        exit(0)
+        if self.prompt == '- ':
+            print '\n',
+            exit(0)
+        else:
+            self.default ('')
 
     def emptyline (self):
         """
@@ -167,13 +170,11 @@ class SML (cmd.Cmd):
             if '\n' in read:
                 line, read = read.rsplit('\n', 1)
 
-                for match in self.validentregex.findall (line):
-                    self.idents.add (match)
+                map (self.idents.add, self.validentregex.findall (line))
 
                 sys.stdout.write (line + '\n')
 
-            for error in self.stderrdaemon.readlines ():
-                sys.stderr.write (error)
+            map(sys.stderr.write, self.stderrdaemon.readlines ())
 
             timer = time.time() - now
 
@@ -194,6 +195,11 @@ try:
                            stdin  = subprocess.PIPE,
                            stdout = subprocess.PIPE,
                            stderr = subprocess.PIPE)).cmdloop ()
+except OSError as e:
+    print >> sys.stderr, 'Received an error while trying to start the sml process: %s' % (e)
+    print >> sys.stderr, 'Make sure that sml is installed correctly and that your path variable is set.'
+    print >> sys.stderr, 'Exiting with failure.'
+    exit(1)
 except KeyboardInterrupt:
     print >> sys.stderr, ''
     print >> sys.stderr, 'Received interrupt, exiting with success.'
