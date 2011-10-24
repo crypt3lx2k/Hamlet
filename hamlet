@@ -50,7 +50,7 @@ class SML (cmd.Cmd):
             # If there was anything there it's gone now.
             self.lines = 0
 
-            return ''.join(s) if s is not None else ''
+            return ''.join(s)
 
         def readlines (self):
             """
@@ -93,8 +93,7 @@ class SML (cmd.Cmd):
         cmd.Cmd.__init__(self, 'tab')
 
         self.sml, self.prompt = sml, ''
-        self.intro  = 'HAbitual ML Environment for Tabulators\n'
-        self.intro += 'powered by ' + self.sml.stdout.readline().strip('\n')
+        self.intro = self.sml.stdout.readline().strip('\n')
 
         self.idents = set ()
 

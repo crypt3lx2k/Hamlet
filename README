@@ -3,5 +3,7 @@ Welcome to Hamlet, the HAbitual ML Environment for Tabulators.
 Hamlet adds several handy features on top of the SMLNJ interpreter if the Python readline module is available.
 This means that you get command history browsing, auto-completion and most importantly Emacs and vi line editing modes.
 
+To run you just issue the command ./hamlet to your shell, any arguments you pass will be passed on to sml.
+
 This project is currently in its infancy but it's already quite usable.
 You may send any questions, complaints and suggestions to trulses@gmail.com
