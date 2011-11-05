@@ -17,7 +17,7 @@ except ImportError:
     print >> sys.stderr, 'readline module not available on your system'
     exit(1)
 
-NDEBUG=True
+NDEBUG=False
 
 def debug (func):
     """
@@ -30,7 +30,7 @@ def debug (func):
         return value
     return func if NDEBUG else wrapper
 
-def findprograms(programs, directories=None):
+def findprograms (programs, directories=None):
     """
     Searches along the path variable for each program in programs.
     Accepts an optional parameter which is a sequence of
@@ -111,13 +111,14 @@ class SMLShell (object):
         """
         Main loop of shell.
         """
-        while self.sml.poll():
+        while self.sml.poll() is None:
             try:
                 self.pre_prompt()
                 line = raw_input(self.prompt)
                 self.post_prompt(line)
             except EOFError:
-                self.sml.terminate()
+                self.sml.kill()
+                self.sml.wait()
             except KeyboardInterrupt:
                 os.kill(self.sml.pid, signal.SIGINT)
         print ''
