@@ -97,6 +97,12 @@ class PrefixTree (object):
 
         current.is_string = True
 
+    def clear (self, s):
+        """
+        Removes all elements.
+        """
+        self.root = PrefixTree.Node()
+
     def contains (self, s):
         """
         Returns whether the string is in set.
