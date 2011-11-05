@@ -1,169 +1,22 @@
 #! /usr/bin/env python
 """
-This process starts an SML process and
-wraps a thin Python script around it.
+This scripts starts an sml process and wraps
+a thin interpreter layer around it.
 """
 
-import util
-import os
-import re
-import subprocess
-import signal
 import sys
+import smlnj
+import subprocess
 
-try:
-    import readline
-except ImportError:
-    print >> sys.stderr, 'readline module not available on your system'
+if not smlnj.util.findprograms (["sml"]):
+    print >> sys.stderr, 'unable to locate sml on your system.'
+    print >> sys.stderr, 'be sure that it is properly installed and that your path variable is set correctly.'
     exit(1)
 
-NDEBUG=True
+args  = ["sml"] + ([] if sys.argv[1:] is None else sys.argv[1:])
+shell = smlnj.SMLShell (subprocess.Popen(args,
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE,
+                                         stdin =subprocess.PIPE))
 
-def debug (func):
-    """
-    Decorator function, prints debug information.
-    """
-    def wrapper (*args, **kwargs):
-        print >> sys.stderr, 'calling %s' % func.__name__
-        value = func(*args, **kwargs)
-        print >> sys.stderr, 'done %s' % func.__name__
-        return value
-    return func if NDEBUG else wrapper
-
-def findprograms (programs, directories=None):
-    """
-    Searches along the path variable for each program in programs.
-    Accepts an optional parameter which is a sequence of
-    directories which will also be searched.
-    """
-    installed = {}
-    paths = os.environ["PATH"].split(":")
-
-    if directories is not None:
-        paths += directories
-
-    for program in programs:
-        installed[program] = None
-
-        for location in map(lambda path : os.path.join (path, program),
-                            paths):
-            if os.path.exists(location):
-                installed[program] = location
-                break
-
-    return installed
-
-class SMLShell (object):
-    """
-    An SML shell.
-    """
-
-    matchidents = r'''
-    val\s+(\S+)\s* |
-    fun\s+(\S+)\s*\(.*\)
-    '''
-    matchregex = re.compile(matchidents, re.VERBOSE | re.LOCALE)
-    prompt     = '(DEBUG) '
-
-    def __init__ (self, sml):
-        """
-        Initializes a new console from an open sml process.
-        """
-        readline.parse_and_bind ('tab: complete')
-        readline.set_completer (self.complete)
-
-        self.identifiers = util.PrefixTree()
-        self.matches, self.sml = [], sml
-
-        self.stdout = util.SynchronizedStreamReader(self.sml.stdout)
-        self.stderr = util.SynchronizedStreamReader(self.sml.stderr)
-
-        self.stdout.start()
-        self.stderr.start()
-
-    @debug
-    def complete (self, text, state):
-        """
-        Readline completer function.
-        """
-        if not state:
-            origline = readline.get_line_buffer()
-            line = origline.lstrip()
-            stripped = len(origline) - len(line)
-            begidx = readline.get_begidx() - stripped
-            endidx = readline.get_endidx() - stripped
-
-            self.matches = self.get_matches(text, line, begidx, endidx)
-        return self.matches[state]
-
-    @debug
-    def get_matches (self, text, line, begidx, endidx):
-        """
-        Returns auto-completion matches for input.
-        """
-        if line == '' and self.prompt == '= ':
-            return ['  ']
-
-        return self.identifiers.prefix(text)
-
-    @debug
-    def main (self):
-        """
-        Main loop of shell.
-        """
-        while self.sml.poll() is None:
-            try:
-                self.pre_prompt()
-                line = raw_input(self.prompt)
-                self.post_prompt(line)
-            except EOFError:
-                self.sml.kill()
-                self.sml.wait()
-            except KeyboardInterrupt:
-                os.kill(self.sml.pid, signal.SIGINT)
-        print ''
-
-    @debug
-    def pre_prompt (self):
-        """
-        Handles and parses output from underlying process.
-        """
-        read, line = '', ''
-
-        while True:
-            read += self.stdout.read()
-
-            if read.startswith('- ') or read.startswith('= '):
-                self.prompt = read
-                break
-
-            if '\n' in read:
-                line, read = read.rsplit('\n', 1)
-                sys.stdout.write(line + '\n')
-
-                for match in self.matchregex.findall(line):
-                    map (self.identifiers.add, match)
-
-            map (sys.stderr.write, self.stderr.readlines())
-
-    @debug
-    def post_prompt (self, line):
-        """
-        Handles and parses input to the underlying process.
-        """
-        self.sml.stdin.write(line + '\n')
-        for match in self.matchregex.findall(line):
-            map (self.identifiers.add, match)
-
-
-if __name__ == '__main__':
-    if not findprograms (["sml"]):
-        print >> sys.stderr, 'unable to locate sml on your system, be sure that it is properly installed and that your path variable is set correctly.'
-        exit(1)
-
-    shell = SMLShell (subprocess.Popen("sml",
-                                       stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE,
-                                       stdin =subprocess.PIPE))
-
-    shell.main()
+shell.main()
