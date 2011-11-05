@@ -1,9 +1,9 @@
-import util
 import os
 import re
 import subprocess
 import signal
 import sys
+import smlnj
 
 try:
     import readline
@@ -43,11 +43,11 @@ class SMLShell (object):
         readline.parse_and_bind ('tab: complete')
         readline.set_completer (self.complete)
 
-        self.identifiers = util.PrefixTree()
+        self.identifiers = smlnj.util.PrefixTree()
         self.matches, self.sml = [], sml
 
-        self.stdout = util.SynchronizedStreamReader(self.sml.stdout)
-        self.stderr = util.SynchronizedStreamReader(self.sml.stderr)
+        self.stdout = smlnj.util.SynchronizedStreamReader(self.sml.stdout)
+        self.stderr = smlnj.util.SynchronizedStreamReader(self.sml.stderr)
 
         self.stdout.start()
         self.stderr.start()

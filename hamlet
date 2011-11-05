@@ -14,9 +14,9 @@ if not smlnj.util.findprograms (["sml"]):
     exit(1)
 
 args  = ["sml"] + ([] if sys.argv[1:] is None else sys.argv[1:])
-shell = smlnj.SMLShell (subprocess.Popen(args,
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.PIPE,
-                                         stdin =subprocess.PIPE))
+shell = smlnj.core.SMLShell (subprocess.Popen(args,
+                                              stdout=subprocess.PIPE,
+                                              stderr=subprocess.PIPE,
+                                              stdin =subprocess.PIPE))
 
 shell.main()
