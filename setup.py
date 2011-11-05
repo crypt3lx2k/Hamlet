@@ -8,4 +8,5 @@ setup(name='hamlet',
       description='SML interpreter layer',
       author='Truls Edvard Stokke',
       author_email='trulses@gmail.com',
-      packages=['smlnj', 'smlnj.util'])
+      packages=['smlnj', 'smlnj.util'],
+      scripts=['hamlet'])

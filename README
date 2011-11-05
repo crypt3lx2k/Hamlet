@@ -4,7 +4,10 @@ Hamlet adds several handy features on top of the SMLNJ interpreter if the Python
 This means that you get command history browsing, auto-completion and most importantly Emacs and vi line editing modes.
 If you are not an Emacs or vi user, don't worry, you will still be able to effectively use hamlet :-).
 
-To run you just issue the command ./hamlet to your shell, any arguments you pass will be passed on to sml.
+To install you run the following command as root in your shell `(root)$ python setup.py install'.
+This will install the smlnj python package and the hamlet script.
+
+To run you just issue the command `(user)$ hamlet' to your shell, any arguments you pass will be passed on to sml.
 
 A requirement for the program to successfully execute is that you have sml installed, and that an executable sml is on your path.
 
