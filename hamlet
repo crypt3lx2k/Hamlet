@@ -17,7 +17,7 @@ except ImportError:
     print >> sys.stderr, 'readline module not available on your system'
     exit(1)
 
-NDEBUG=False
+NDEBUG=True
 
 def debug (func):
     """
