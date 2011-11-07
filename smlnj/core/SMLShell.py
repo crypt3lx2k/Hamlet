@@ -1,6 +1,4 @@
-import os
 import re
-import subprocess
 import signal
 import sys
 import smlnj
@@ -41,7 +39,7 @@ class SMLShell (object):
         Initializes a new console from an open sml process.
         """
         readline.parse_and_bind ('tab: complete')
-        readline.set_completer (self.complete)
+        self.old_completer = readline.set_completer (self.complete)
 
         self.identifiers = smlnj.util.PrefixTree()
         self.matches, self.sml = [], sml
@@ -51,6 +49,13 @@ class SMLShell (object):
 
         self.stdout.start()
         self.stderr.start()
+
+        self.old_interrupt = signal.signal(signal.SIGINT,
+                                           self.interrupt_handler)
+
+    def __del__ (self):
+        readline.set_completer (self.old_completer)
+        signal.signal(signal.SIGINT, self.old_interrupt)
 
     @debug
     def complete (self, text, state):
@@ -78,21 +83,25 @@ class SMLShell (object):
         return self.identifiers.prefix(text)
 
     @debug
+    def interrupt_handler (self, *ignored):
+        """
+        Handles the interrupt event.
+        """
+        self.sml.send_signal(signal.SIGINT)
+
+    @debug
     def main (self):
         """
         Main loop of shell.
         """
-        while self.sml.poll() is None:
-            try:
+        try:
+            while self.sml.poll() is None:
                 self.pre_prompt()
                 line = raw_input(self.prompt)
                 self.post_prompt(line)
-            except EOFError:
-                self.sml.kill()
-                self.sml.wait()
-            except KeyboardInterrupt:
-                os.kill(self.sml.pid, signal.SIGINT)
-        print ''
+        except EOFError:
+            self.terminate()
+            self.sml.wait()
 
     @debug
     def pre_prompt (self):
@@ -125,3 +134,10 @@ class SMLShell (object):
         self.sml.stdin.write(line + '\n')
         for match in self.matchregex.findall(line):
             map (self.identifiers.add, match)
+
+    @debug
+    def terminate (self):
+        """
+        Terminates the underlying process.
+        """
+        self.sml.stdin.close()
