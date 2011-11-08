@@ -50,12 +50,8 @@ class SMLShell (object):
         self.stdout.start()
         self.stderr.start()
 
-        self.old_interrupt = signal.signal(signal.SIGINT,
-                                           self.interrupt_handler)
-
     def __del__ (self):
         readline.set_completer (self.old_completer)
-        signal.signal(signal.SIGINT, self.old_interrupt)
 
     @debug
     def complete (self, text, state):
@@ -83,25 +79,20 @@ class SMLShell (object):
         return self.identifiers.prefix(text)
 
     @debug
-    def interrupt_handler (self, *ignored):
-        """
-        Handles the interrupt event.
-        """
-        self.sml.send_signal(signal.SIGINT)
-
-    @debug
     def main (self):
         """
         Main loop of shell.
         """
-        try:
-            while self.sml.poll() is None:
+        while self.sml.poll() is None:
+            try:
                 self.pre_prompt()
                 line = raw_input(self.prompt)
                 self.post_prompt(line)
-        except EOFError:
-            self.terminate()
-            self.sml.wait()
+            except EOFError:
+                self.terminate()
+                self.sml.wait()
+            except KeyboardInterrupt:
+                pass
 
     @debug
     def pre_prompt (self):
